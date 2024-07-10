@@ -2,22 +2,31 @@ import { Server } from "socket.io";
 import fetch from 'node-fetch'
 import express from 'express'
  
-const io = new Server({});
+const io = new Server({
+  cors: {
+    origin: "*",
+  }
+});
 
 const clients = {};
 
 async function checkUser(headers = { token: '', event_id: '', socket }) {
-    try {
-        // TODO отпраивть запрос для проверки корректности токена и соответствия event_id тому, что указан в токене
-        const res = await fetch(`https://jsonplaceholder.typicode.com/users/${headers.event_id}?token=${headers.token}`).then(e => e.json())
-        clients[headers.event_id] = headers.socket;
-    } catch (e) {
-        console.error(`Не удалось проверить корерктность токена`, e);
+  if (process.env.LOGGING == true) {
+    console.log(`connect:: event: ${headers.event_id}, token: ${headers.token}`)
+  }
+  try {
+      // TODO отпраивть запрос для проверки корректности токена и соответствия event_id тому, что указан в токене
+      const res = await fetch(`${process.env.BACKEND_URL.replace('{event_id}', headers.event_id)}?token=${headers.token}`).then(e => e.json())
+      clients[headers.event_id] = headers.socket;
+  } catch (e) {
+    if (process.env.LOGGING == true) {
+      console.error(`Не удалось проверить корерктность токена`, e);
     }
+  }
 }
 
 io.on("connection", (socket) => {
-//   console.log(socket);
+  // console.log(socket);
   checkUser({
     token: socket.client.request.headers['token'],
     socket: socket,
@@ -25,7 +34,9 @@ io.on("connection", (socket) => {
   })
 
   socket.on('event1', (event) => {
-    console.log(event);
+    if (process.env.LOGGING == true) {
+      console.log(event);
+    }
   })
 
   socket.on("disconnect", (reason) => {
